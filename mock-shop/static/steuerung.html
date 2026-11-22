@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Testseite · Produktdaten-Pipeline</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231f5c4a'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a href="/" class="logo">Demo&nbsp;Möbelshop</a>
+    <nav class="nav"><a href="/">Shop</a><a href="/steuerung" aria-current="page">Testseite</a></nav>
+  </header>
+
+  <main class="control">
+    <h1>Produktdaten-Pipeline testen</h1>
+    <p class="lead">
+      Diese Automatisierung holt neue Produkte von einem Lieferanten, übersetzt sie mit KI ins Deutsche
+      und lädt sie erst nach Ihrer Freigabe in den Shop. Probieren Sie es in drei Schritten aus.
+      Fragen? Der Sprachassistent unten rechts erklärt Ihnen alles.
+    </p>
+
+    <p id="not-configured" class="notice" hidden>
+      Die Testseite ist noch nicht eingerichtet. Die Buttons sind deaktiviert.
+    </p>
+
+    <!-- Step 0: look at both websites -->
+    <section class="panel">
+      <h2>Zuerst: die beiden Websites ansehen</h2>
+      <p class="hint">Der Lieferant hat neue Produkte, der Shop zeigt, was bereits freigegeben ist.</p>
+      <div class="links">
+        <a id="supplier-link" class="btn btn-secondary" href="#" target="_blank" rel="noopener">🏭 Lieferanten-Website</a>
+        <a class="btn btn-secondary" href="/" target="_blank" rel="noopener">🛋 Shop-Website <span id="shop-count"></span></a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <label for="password"><strong>Demo-Passwort</strong></label>
+      <input id="password" type="password" autocomplete="off" placeholder="Passwort vom Entwickler">
+    </section>
+
+    <!-- Step 1 -->
+    <section class="panel step">
+      <div class="num">1</div>
+      <div class="step-body">
+        <h2>Neue Produkte prüfen</h2>
+        <p class="hint">Holt Produkte vom Lieferanten, überspringt bekannte, trägt neue ins Google Sheet ein und übersetzt sie. Dauer: ca. 10–30 Sekunden.</p>
+        <div class="row">
+          <label>Kategorie
+            <select id="collection">
+              <option value="all">Alle</option>
+              <option value="sofa">Sofas</option>
+              <option value="chair">Stühle</option>
+            </select>
+          </label>
+          <label>Anzahl
+            <select id="limit">
+              <option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option>
+            </select>
+          </label>
+        </div>
+        <button id="btn-check" class="btn" type="button" data-label="🔍 Neue Produkte prüfen">🔍 Neue Produkte prüfen</button>
+        <p class="status" id="status-check" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <!-- Step 2 -->
+    <section class="panel step">
+      <div class="num">2</div>
+      <div class="step-body">
+        <h2>Im Google Sheet freigeben</h2>
+        <p class="hint">Neue Produkte haben den Status <em>Wartet auf Freigabe</em>. Wählen Sie in der Spalte
+          <strong>approval</strong> „Approved“ (freigeben) oder „Not approved“ (ablehnen). Bitte nur diese Spalte ändern.</p>
+        <a id="sheet-link" class="btn" href="#" target="_blank" rel="noopener">📄 Google Sheet öffnen</a>
+      </div>
+    </section>
+
+    <!-- Step 3 -->
+    <section class="panel step">
+      <div class="num">3</div>
+      <div class="step-body">
+        <h2>Freigegebene Produkte hochladen</h2>
+        <p class="hint">Lädt alle freigegebenen Produkte in den Shop (Status <em>Hochgeladen</em>). Abgelehnte bekommen den Status <em>Abgelehnt</em>.</p>
+        <button id="btn-upload" class="btn" type="button" data-label="⬆️ Freigegebene Produkte hochladen">⬆️ Freigegebene Produkte hochladen</button>
+        <p class="status" id="status-upload" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Ergebnis ansehen</h2>
+      <p class="hint">Öffnen Sie die Shop-Website (eventuell neu laden): Die freigegebenen Produkte erscheinen mit deutscher Beschreibung.</p>
+      <a class="btn btn-secondary" href="/" target="_blank" rel="noopener">🛋 Zum Shop</a>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    Portfolio-Demo · fiktiver Lieferant und Demo-Shop · keine echten Bestellungen
+  </footer>
+
+  <script src="/static/steuerung.js"></script>
+</body>
+</html>

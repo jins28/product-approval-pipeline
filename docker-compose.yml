@@ -1,0 +1,66 @@
+# All services of the demo.
+#
+#   docker compose up -d --build
+#
+# Secrets and settings come from the .env file next to this file (never committed).
+# n8n runs in its own setup (C:\n8n) and reaches these services at
+# http://host.docker.internal:8001 (shop) and http://host.docker.internal:8002 (scraper).
+# The demo supplier website runs at http://localhost:8003 (later: on Netlify).
+
+services:
+  mock-shop:
+    build: ./mock-shop
+    container_name: mock-shop
+    environment:
+      SHOP_API_KEY: ${SHOP_API_KEY:?Set SHOP_API_KEY in .env}
+      SHOP_DB_PATH: /app/data/shop.db
+      SHOP_MEDIA_DIR: /app/data/media
+      SHOP_CURRENCY: ${SHOP_CURRENCY:-EUR}
+      # Test page (http://localhost:8001/steuerung)
+      CONTROL_PASSWORD: ${CONTROL_PASSWORD:-}
+      CONTROL_COOLDOWN_SECONDS: ${CONTROL_COOLDOWN_SECONDS:-60}
+      N8N_WEBHOOK_BASE: ${N8N_WEBHOOK_BASE:-http://host.docker.internal:5678/webhook}
+      SHEET_URL: ${SHEET_URL:-}
+      SUPPLIER_PUBLIC_URL: ${SUPPLIER_PUBLIC_URL:-http://localhost:8003}
+      VOICE_AGENT_ID: ${VOICE_AGENT_ID:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # lets the shop reach n8n on this computer (also on Linux)
+    ports:
+      - "8001:8001"          # http://localhost:8001 on your machine
+    volumes:
+      - mock_shop_data:/app/data          # database (kept when the container restarts)
+      - ./data/media:/app/data/media      # product images, shared with the scraper
+    restart: unless-stopped
+
+  scraper:
+    build: ./scraper
+    container_name: scraper
+    environment:
+      # supplier = our demo supplier website (default), jonathanadler = real shop (local tests)
+      SCRAPER_SOURCE: ${SCRAPER_SOURCE:-supplier}
+      # http://supplier = the container below; after deploying, your Netlify address
+      SUPPLIER_BASE_URL: ${SUPPLIER_BASE_URL:-http://supplier}
+      SCRAPER_BASE_URL: ${SCRAPER_BASE_URL:-https://jonathanadler.com}
+      SCRAPER_COLLECTION: ${SCRAPER_COLLECTION:-furniture-by-category-sofas}
+      SCRAPER_DELAY_SECONDS: ${SCRAPER_DELAY_SECONDS:-2}
+      SCRAPER_MAX_IMAGES: ${SCRAPER_MAX_IMAGES:-4}
+      SCRAPER_MEDIA_DIR: /app/data/media
+    ports:
+      - "8002:8002"          # http://localhost:8002/docs to try it in the browser
+    volumes:
+      - ./data/media:/app/data/media      # downloaded images land here -> shop serves them
+    restart: unless-stopped
+
+  supplier:
+    # The fictional supplier website: plain static files served by nginx.
+    # Rebuild the files with:  python supplier-site/build.py
+    image: nginx:1.27-alpine
+    container_name: supplier
+    ports:
+      - "8003:80"            # http://localhost:8003
+    volumes:
+      - ./supplier-site/public:/usr/share/nginx/html:ro
+    restart: unless-stopped
+
+volumes:
+  mock_shop_data:

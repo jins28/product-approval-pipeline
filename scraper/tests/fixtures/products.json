@@ -1,0 +1,14 @@
+{"products": [
+ {"id": 111, "title": "Demo Curved Sofa", "handle": "demo-curved-sofa",
+  "body_html": "<h3>Heaven Sent.</h3><p>A curved sofa with brass legs.</p><p>Always dreamy.</p>",
+  "variants": [{"sku": "31548", "price": "5750.00"}],
+  "images": [{"position": 2, "src": "//cdn.example.com/files/b.jpg?v=1", "alt": ""},
+             {"position": 1, "src": "https://cdn.example.com/files/a.jpg?v=1", "alt": "Front view"},
+             {"position": 3, "src": "https://cdn.example.com/files/c.jpg"},
+             {"position": 4, "src": "https://cdn.example.com/files/d.jpg"},
+             {"position": 5, "src": "https://cdn.example.com/files/e.jpg"}]},
+ {"id": 222, "title": "Demo Settee", "handle": "demo-settee",
+  "body_html": "<p>A small settee.</p><h4>Dimensions</h4><p>60 W</p>",
+  "variants": [{"sku": "", "price": "2,100"}], "images": []},
+ {"id": 333, "title": "Broken Sofa", "handle": "broken-sofa", "body_html": "", "variants": [{"price": "1"}], "images": []}
+]}

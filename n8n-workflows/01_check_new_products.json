@@ -1,0 +1,396 @@
+{
+  "name": "01 – Check for new products",
+  "nodes": [
+    {
+      "id": "1899e3d3-3b94-441c-a966-f64aec25594f",
+      "name": "Button: Check for new products",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "be918787-cb34-4cdf-b396-36dfcf69877c",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "check-new-products",
+        "responseMode": "onReceived",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      }
+    },
+    {
+      "id": "e2fb2a5c-ebd4-40d4-b03e-d6ffa34af1a4",
+      "name": "Every day at 07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        220
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "7da1bf22-579f-4f0f-bb70-90aa30038293",
+      "name": "Scrape products",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        100
+      ],
+      "parameters": {
+        "url": "http://host.docker.internal:8002/scrape",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "={{ $json.body?.limit || 5 }}"
+            },
+            {
+              "name": "source",
+              "value": "={{ $json.body?.source || '' }}"
+            },
+            {
+              "name": "collection",
+              "value": "={{ $json.body?.collection || 'all' }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        }
+      }
+    },
+    {
+      "id": "8cf502d7-356b-4b70-8b49-37053c3a06e9",
+      "name": "Read existing rows",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        500,
+        100
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "5a8e8d62-7645-4a3e-bbd6-f28ea2a517d0",
+      "name": "Keep only new products",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// Compare the scraped products with the rows already in the sheet.\n// The product URL is the unique key: a product whose URL is already in the\n// sheet is skipped, so running the workflow twice never creates duplicates.\n\nconst scraped = $('Scrape products').first().json;\nconst existingUrls = new Set(\n  $('Read existing rows').all()\n    .map(item => String(item.json.url || '').trim())\n    .filter(url => url !== '')\n);\n\nconst now = new Date().toISOString();\nconst newRows = [];\n\nfor (const p of scraped.products || []) {\n  if (existingUrls.has(p.url)) continue;   // already in the sheet -> skip\n  newRows.push({\n    json: {\n      id: p.id,\n      title: p.title,\n      product_type: p.product_type,\n      price: p.price,\n      url: p.url,\n      image_urls: (p.images || []).map(img => img.src).join('\\n'),\n      description_en: p.description_en,\n      dimensions_en: p.dimensions,\n      material_construction_en: p.material_construction,\n      features_feel_en: p.features_feel,\n      description_de: '',\n      dimensions_de: '',\n      material_construction_de: '',\n      features_feel_de: '',\n      status: 'Neu',\n      approval: '',\n      error: '',\n      created_at: now,\n      updated_at: now,\n    },\n  });\n}\n\n// Returning an empty list stops the workflow here: nothing new to do.\nreturn newRows;"
+      }
+    },
+    {
+      "id": "d440f9ea-cefa-4886-999d-d864e55fa322",
+      "name": "Add new rows (status Neu)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        980,
+        100
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      }
+    },
+    {
+      "id": "c44e4cae-3c50-4e5f-80c0-817190892789",
+      "name": "Translate with OpenAI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1220,
+        100
+      ],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: 'gpt-4o-mini',\n  response_format: { type: 'json_object' },\n  messages: [\n    {\n      role: 'system',\n      content: 'You translate product texts for a German online furniture shop. Translate from English into natural, customer-friendly German. Keep all numbers, measurements and units exactly as given; only translate words (for example W/D/H becomes B/T/H). Keep line breaks. Do not add or invent information. Answer only with a JSON object with the keys description_de, dimensions_de, material_construction_de and features_feel_de. If an input text is empty, return an empty string for it.'\n    },\n    {\n      role: 'user',\n      content: JSON.stringify({\n        description: $('Keep only new products').item.json.description_en,\n        dimensions: $('Keep only new products').item.json.dimensions_en,\n        material_construction: $('Keep only new products').item.json.material_construction_en,\n        features_feel: $('Keep only new products').item.json.features_feel_en\n      })\n    }\n  ]\n}) }}",
+        "options": {
+          "timeout": 60000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "72697085-da36-48a6-886a-2c26edaeb54c",
+      "name": "Prepare translated row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1480,
+        20
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Read the JSON answer from OpenAI and build the sheet update for this product.\nconst row = $('Keep only new products').item.json;\nconst now = new Date().toISOString();\n\ntry {\n  const t = JSON.parse($json.choices[0].message.content);\n  return {\n    json: {\n      id: row.id,                      // used to find the right row in the sheet\n      description_de: t.description_de || '',\n      dimensions_de: t.dimensions_de || '',\n      material_construction_de: t.material_construction_de || '',\n      features_feel_de: t.features_feel_de || '',\n      status: 'Wartet auf Freigabe',\n      error: '',\n      updated_at: now,\n    },\n  };\n} catch (e) {\n  // OpenAI answered, but not with the JSON we expected\n  return {\n    json: { id: row.id, status: 'Fehler', error: 'Translation could not be read: ' + e.message, updated_at: now },\n  };\n}"
+      }
+    },
+    {
+      "id": "58cdea56-ceda-4bc0-a914-e6f38dfe9416",
+      "name": "Prepare error row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1480,
+        220
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// The OpenAI request failed (no credit, wrong key, timeout, ...).\n// Mark the product as \"Fehler\" and keep the reason in the error column.\nconst row = $('Keep only new products').item.json;\nconst err = $json.error;\nconst message = typeof err === 'string' ? err : (err && err.message) || JSON.stringify($json);\n\nreturn {\n  json: {\n    id: row.id,\n    status: 'Fehler',\n    error: ('Translation failed: ' + message).slice(0, 500),\n    updated_at: new Date().toISOString(),\n  },\n};"
+      }
+    },
+    {
+      "id": "e31d42bf-5e5d-4320-92fd-49db1cb98295",
+      "name": "Update row in sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1740,
+        100
+      ],
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      }
+    },
+    {
+      "id": "ebb161fd-fcfe-4e5d-9431-f4f7484670b5",
+      "name": "Note: start",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -220
+      ],
+      "parameters": {
+        "width": 480,
+        "height": 180,
+        "content": "## 1. Start\nThe button on the control page calls the webhook (POST /webhook/check-new-products).\nThe schedule runs the same steps every morning.\nOptional body: {\"limit\": 3, \"collection\": \"chair\"}\nEmpty source = scraper default (demo supplier)."
+      }
+    },
+    {
+      "id": "e59fad8b-a4f3-43cf-9a90-da53ed1449fc",
+      "name": "Note: dedupe",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        460,
+        -220
+      ],
+      "parameters": {
+        "width": 740,
+        "height": 180,
+        "content": "## 2. Scrape + duplicate check\nThe scraper container returns the products. We compare each product URL with the URLs already in the Google Sheet and only add new ones (status \"Neu\").\nCell format RAW keeps prices like 5750.00 as typed (a German sheet would otherwise read the dot as a thousands separator)."
+      }
+    },
+    {
+      "id": "1a95ef20-d149-41af-8d10-7f9203474843",
+      "name": "Note: translate",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        -220
+      ],
+      "parameters": {
+        "width": 740,
+        "height": 180,
+        "content": "## 3. Translate + save\nOne OpenAI request per product (1 s pause between requests). Success -> German texts + status \"Wartet auf Freigabe\". Error -> status \"Fehler\" + reason in the error column. The row is found by its id."
+      }
+    }
+  ],
+  "connections": {
+    "Button: Check for new products": {
+      "main": [
+        [
+          {
+            "node": "Scrape products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every day at 07:00": {
+      "main": [
+        [
+          {
+            "node": "Scrape products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape products": {
+      "main": [
+        [
+          {
+            "node": "Read existing rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read existing rows": {
+      "main": [
+        [
+          {
+            "node": "Keep only new products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep only new products": {
+      "main": [
+        [
+          {
+            "node": "Add new rows (status Neu)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add new rows (status Neu)": {
+      "main": [
+        [
+          {
+            "node": "Translate with OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Translate with OpenAI": {
+      "main": [
+        [
+          {
+            "node": "Prepare translated row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare error row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare translated row": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare error row": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin"
+  },
+  "pinData": {}
+}

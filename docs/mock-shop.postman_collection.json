@@ -1,0 +1,192 @@
+{
+  "info": {
+    "name": "Mock Shop API",
+    "description": "Requests for the demo shop. Set the collection variable apiKey (Current value only) to the key from your .env file.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8001"
+    },
+    {
+      "key": "apiKey",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1 Health check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        },
+        "description": "No key needed. Expect 200 {\"status\":\"ok\"}."
+      }
+    },
+    {
+      "name": "2 List products (with key)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/products",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "products"
+          ]
+        },
+        "description": "Expect 200."
+      }
+    },
+    {
+      "name": "3 Upload product",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/products",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "products"
+          ]
+        },
+        "description": "First send: 201 created. Send again: 200 updated (same SKU = no duplicate).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"product\": {\n    \"title\": \"Sofa „Postman“ Testmodell\",\n    \"body_html\": \"<p>Ein Testsofa, hochgeladen mit Postman.</p>\",\n    \"images\": [\n      {\n        \"src\": \"/static/demo/sofa-3.svg\",\n        \"alt\": \"Testsofa\"\n      }\n    ],\n    \"dimensions\": \"Breite: 200 cm\\nTiefe: 90 cm\\nHöhe: 80 cm\",\n    \"material_construction\": \"Gestell aus Buchenholz\\nBezug: Leinen\",\n    \"features_feel\": \"Mittelfester Sitzkomfort\",\n    \"source_url\": \"https://example.com/demo/postman\",\n    \"variants\": [\n      {\n        \"sku\": \"POSTMAN-001\",\n        \"price\": \"1490.00\"\n      }\n    ]\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "4 Get one product",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/products/1",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "products",
+            "1"
+          ]
+        },
+        "description": "Change the number to another id. Unknown id: 404."
+      }
+    },
+    {
+      "name": "5 Storefront list (public)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/storefront/products",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "storefront",
+            "products"
+          ]
+        },
+        "description": "No key needed. What the website shows."
+      }
+    },
+    {
+      "name": "6 Wrong key (expect 401)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "wrong-key"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/products",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "products"
+          ]
+        },
+        "description": "Security test: expect 401."
+      }
+    },
+    {
+      "name": "7 Invalid data (expect 422)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{apiKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/products",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "products"
+          ]
+        },
+        "description": "Validation test: price with currency sign is rejected with 422.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"product\": {\n    \"title\": \"Kaputt\",\n    \"variants\": [\n      {\n        \"sku\": \"X\",\n        \"price\": \"€1.490\"\n      }\n    ]\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    }
+  ]
+}
