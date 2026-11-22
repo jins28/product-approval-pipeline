@@ -36,12 +36,12 @@ services:
     build: ./scraper
     container_name: scraper
     environment:
-      # supplier = our demo supplier website (default), jonathanadler = real shop (local tests)
+      # supplier = our demo supplier website (default), shopify = a Shopify store set in .env
       SCRAPER_SOURCE: ${SCRAPER_SOURCE:-supplier}
       # http://supplier = the container below; after deploying, your Netlify address
       SUPPLIER_BASE_URL: ${SUPPLIER_BASE_URL:-http://supplier}
-      SCRAPER_BASE_URL: ${SCRAPER_BASE_URL:-https://jonathanadler.com}
-      SCRAPER_COLLECTION: ${SCRAPER_COLLECTION:-furniture-by-category-sofas}
+      SHOPIFY_STORE_URL: ${SHOPIFY_STORE_URL:-}
+      SHOPIFY_COLLECTION: ${SHOPIFY_COLLECTION:-}
       SCRAPER_DELAY_SECONDS: ${SCRAPER_DELAY_SECONDS:-2}
       SCRAPER_MAX_IMAGES: ${SCRAPER_MAX_IMAGES:-4}
       SCRAPER_MEDIA_DIR: /app/data/media

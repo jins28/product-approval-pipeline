@@ -1,7 +1,9 @@
 """
 Product scraper with two sources:
-- "supplier":      our fictional supplier website (plain HTML pages, default)
-- "jonathanadler": a real Shopify shop (JSON feed + product pages, local tests only)
+- "supplier": our fictional supplier website (plain HTML pages, default)
+- "shopify":  any Shopify store (JSON feed + product pages). The store address
+              is set only in your private .env file (SHOPIFY_STORE_URL).
+              Only scrape stores whose terms and robots.txt allow it.
 
 What it does, step by step
 1. Checks robots.txt: if the site does not allow a URL, we do not fetch it.
@@ -24,7 +26,7 @@ Politeness rules (important when scraping a real site):
 
 Run it from the command line:
     python scraper.py --limit 3
-    python scraper.py --collection furniture-by-category-chairs --limit 3
+    python scraper.py --source shopify --collection sofas --limit 3
 or call it through the API in app.py (that is what n8n does).
 
 Scraped texts and images belong to the website owner. They are saved in
@@ -52,12 +54,12 @@ from bs4 import BeautifulSoup, Tag
 # ---------------------------------------------------------------------------
 
 # Which source to scrape by default: "supplier" (our own demo supplier website)
-# or "jonathanadler" (a real Shopify shop, for local tests only)
+# or "shopify" (a Shopify store you configure in .env)
 SOURCE = os.getenv("SCRAPER_SOURCE", "supplier")
-SOURCES = ("supplier", "jonathanadler")
+SOURCES = ("supplier", "shopify")
 SUPPLIER_BASE_URL = os.getenv("SUPPLIER_BASE_URL", "http://supplier").rstrip("/")
-BASE_URL = os.getenv("SCRAPER_BASE_URL", "https://jonathanadler.com").rstrip("/")
-COLLECTION = os.getenv("SCRAPER_COLLECTION", "furniture-by-category-sofas")
+BASE_URL = os.getenv("SHOPIFY_STORE_URL", "").rstrip("/")          # e.g. https://example-store.com
+COLLECTION = os.getenv("SHOPIFY_COLLECTION", "")                    # e.g. sofas
 MEDIA_DIR = Path(os.getenv("SCRAPER_MEDIA_DIR", "data/media"))
 DELAY_SECONDS = float(os.getenv("SCRAPER_DELAY_SECONDS", "2"))
 # How often to retry when the site answers 429 (too many requests) or 503
@@ -340,7 +342,7 @@ def build_product(client: PoliteClient, raw: dict, with_images: bool, media_dir:
     sections = parse_sections(client.get(url).text)
     return {
         # Stable id: the shop's SKU if it has one, otherwise its product id
-        "id": f"JA-{variant.get('sku') or raw['id']}",
+        "id": f"SH-{variant.get('sku') or raw['id']}",
         "title": raw["title"],
         # e.g. "Sofa" or "Chair"; falls back to the collection name
         "product_type": raw.get("product_type") or collection.split("-")[-1].rstrip("s").title(),
@@ -410,13 +412,14 @@ def scrape_supplier(limit: int, with_images: bool, client: PoliteClient, media_d
 # ---------------------------------------------------------------------------
 
 def scrape(limit: int = 5, with_images: bool = True, client: PoliteClient | None = None,
-           media_dir: Path = MEDIA_DIR, collection: str = COLLECTION, source: str | None = None) -> dict:
+           media_dir: Path = MEDIA_DIR, collection: str | None = None, source: str | None = None) -> dict:
     """
-    source="supplier"      -> our demo supplier website (default)
-    source="jonathanadler" -> Shopify JSON feed + product pages
+    source="supplier" -> our demo supplier website (default)
+    source="shopify"  -> Shopify JSON feed + product pages (store from SHOPIFY_STORE_URL)
     For the supplier, "collection" can be "sofa" or "chair" to filter (anything else = all).
     """
     source = source or SOURCE
+    collection = collection or ("all" if source == "supplier" else COLLECTION)
     if source not in SOURCES:
         raise ValueError(f"Unknown source {source!r}. Use one of: {', '.join(SOURCES)}")
     if source == "supplier":
@@ -424,6 +427,8 @@ def scrape(limit: int = 5, with_images: bool = True, client: PoliteClient | None
         category = collection if collection in ("sofa", "chair") else None
         return scrape_supplier(limit, with_images, client, media_dir, category)
 
+    if client is None and not BASE_URL:
+        raise ValueError("source=shopify needs SHOPIFY_STORE_URL in your .env file")
     collection = collection_handle(collection)
     client = client or PoliteClient()
     products, errors = [], []
@@ -443,8 +448,8 @@ def scrape(limit: int = 5, with_images: bool = True, client: PoliteClient | None
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Scrape products from a Shopify collection.")
     parser.add_argument("--source", default=SOURCE, choices=SOURCES,
-                        help="supplier (demo website, default) or jonathanadler")
-    parser.add_argument("--collection", default=COLLECTION,
+                        help="supplier (demo website, default) or shopify")
+    parser.add_argument("--collection", default=None,
                         help="collection handle or full collection link (default: sofas)")
     parser.add_argument("--limit", type=int, default=3, help="max. number of products (default 3)")
     parser.add_argument("--no-images", action="store_true", help="do not download images")

@@ -12,8 +12,9 @@ FIX = Path(__file__).parent / "fixtures"
 
 @pytest.fixture(autouse=True)
 def shopify_is_default(monkeypatch):
-    # The tests in this file are about the Shopify source (Jonathan Adler)
-    monkeypatch.setattr(scraper, "SOURCE", "jonathanadler")
+    # The tests in this file are about the Shopify source
+    monkeypatch.setattr(scraper, "SOURCE", "shopify")
+    monkeypatch.setattr(scraper, "COLLECTION", "furniture-by-category-sofas")
 
 
 class FakeResponse:
@@ -73,7 +74,7 @@ def test_full_scrape(tmp_path):
     result = scraper.scrape(limit=5, client=client(), media_dir=tmp_path)
     assert result["count"] == 2
     first = result["products"][0]
-    assert first["id"] == "JA-31548"
+    assert first["id"] == "SH-31548"
     assert first["price"] == "5750.00"
     assert first["url"] == "https://shop.example.com/products/demo-curved-sofa"
     assert first["description_en"] == "Heaven Sent.\nA curved sofa with brass legs.\nAlways dreamy."
@@ -83,7 +84,7 @@ def test_full_scrape(tmp_path):
     assert (tmp_path / "demo-curved-sofa-1.jpg").read_bytes().startswith(b"\xff\xd8")
     # second product: no SKU -> product id, price with comma cleaned, description cut before "Dimensions"
     second = result["products"][1]
-    assert second["id"] == "JA-222" and second["price"] == "2100.00"
+    assert second["id"] == "SH-222" and second["price"] == "2100.00"
     assert second["description_en"] == "A small settee."
     # the broken product is reported, the run continues
     assert result["errors"][0]["url"].endswith("/products/broken-sofa")
@@ -117,8 +118,8 @@ def test_no_images_option(tmp_path):
 
 @pytest.mark.parametrize("value,expected", [
     ("furniture-by-category-chairs", "furniture-by-category-chairs"),
-    ("https://jonathanadler.com/collections/furniture-by-category-chairs?srsltid=AYCX9vJ66Y", "furniture-by-category-chairs"),
-    ("https://jonathanadler.com/collections/furniture-by-category-sofas/", "furniture-by-category-sofas"),
+    ("https://example-store.com/collections/furniture-by-category-chairs?srsltid=AYCX9vJ66Y", "furniture-by-category-chairs"),
+    ("https://example-store.com/collections/furniture-by-category-sofas/", "furniture-by-category-sofas"),
 ])
 def test_collection_handle_accepts_links(value, expected):
     assert scraper.collection_handle(value) == expected
